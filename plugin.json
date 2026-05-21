@@ -1,0 +1,8 @@
+{
+  "id": "coolercontrol",
+  "name": "CoolerControl",
+  "version": "1.0.0",
+  "sdkVersion": "1.1",
+  "entryAssembly": "LoupixDeck.Plugin.CoolerControl.dll",
+  "platform": "All"
+}
