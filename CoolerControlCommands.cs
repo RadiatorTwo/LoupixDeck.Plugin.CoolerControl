@@ -13,6 +13,8 @@ internal sealed class CoolerControlSetModeCommand(CoolerControlApiController con
         CommandName = "System.CoolerControlSetMode",
         DisplayName = "Set Mode",
         Group = "Cooler Control",
+        Icon = "\U000F062E",
+        Description = "Activate a CoolerControl mode by UID",
         ParameterTemplate = "({UID})",
         Parameters = [new CommandParameter("UID", typeof(string))],
         // Surfaced per mode through the dynamic "Modes" submenu.
