@@ -73,6 +73,20 @@ public sealed class CoolerControlApiController
         return (JArray?)jObj["modes"] ?? new JArray();
     }
 
+    /// <summary>Every device with its temperatures and channels and their labels.</summary>
+    public async Task<JArray> GetDevices()
+    {
+        JObject jObj = await GetJson("devices");
+        return (JArray?)jObj["devices"] ?? new JArray();
+    }
+
+    /// <summary>The most recent status of every device.</summary>
+    public async Task<JArray> GetStatus()
+    {
+        JObject jObj = await GetJson("status");
+        return (JArray?)jObj["devices"] ?? new JArray();
+    }
+
     public async Task<bool> SetMode(string uid)
     {
         if (_token is null && !await Login())
