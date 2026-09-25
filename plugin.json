@@ -1,8 +1,10 @@
 {
   "id": "coolercontrol",
   "name": "CoolerControl",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "sdkVersion": "1.26",
   "entryAssembly": "LoupixDeck.Plugin.CoolerControl.dll",
-  "platform": "All"
+  "platform": "All",
+  "author": "RadiatorTwo",
+  "description": "Activate CoolerControl modes and show the daemon's sensor readings on touch buttons."
 }

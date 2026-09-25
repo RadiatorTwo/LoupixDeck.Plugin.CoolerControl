@@ -52,7 +52,7 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
     {
         Id = "coolercontrol",
         Name = "CoolerControl",
-        Version = new Version(1, 0, 0),
+        Version = new Version(1, 1, 0),
         SdkVersion = new Version(1, 26, 0),
         Author = "RadiatorTwo",
         Description = "Activate CoolerControl modes and show the daemon's sensor readings on touch buttons."
