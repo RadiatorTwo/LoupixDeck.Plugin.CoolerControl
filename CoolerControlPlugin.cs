@@ -19,7 +19,7 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
         Id = "coolercontrol",
         Name = "CoolerControl",
         Version = new Version(1, 0, 0),
-        SdkVersion = new Version(1, 16, 0),
+        SdkVersion = new Version(1, 26, 0),
         Author = "RadiatorTwo",
         Description = "Activate CoolerControl modes from the device via the CoolerControl daemon API."
     };
