@@ -9,7 +9,8 @@ namespace LoupixDeck.Plugin.CoolerControl;
 public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPluginSettingsPage
 {
     private const string KeyUrl = "url";
-    private const string DefaultUrl = "http://127.0.0.1:11987/";
+    private const string KeyToken = "token";
+    private const string DefaultUrl = CoolerControlApiController.DefaultUrl;
 
     private readonly CoolerControlApiController _controller = new();
     private IPluginHost? _host;
@@ -92,6 +93,13 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
             Key = KeyUrl, Label = "Daemon URL", Kind = PluginSettingKind.Text,
             DefaultValue = DefaultUrl,
             Description = "Base URL of the CoolerControl daemon REST API."
+        },
+        new PluginSettingDescriptor
+        {
+            Key = KeyToken, Label = "Access token (optional)", Kind = PluginSettingKind.Password,
+            DefaultValue = string.Empty,
+            Description = "Required for CoolerControl 4.0 and later. Create one in CoolerControl under " +
+                          "Access Protection, with write access to switch modes. Leave empty for older daemons."
         }
     ];
 
@@ -126,6 +134,7 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
             return;
 
         var url = _host.Settings.Get(KeyUrl, DefaultUrl) ?? DefaultUrl;
-        _controller.Configure(url);
+        var token = _host.Settings.Get(KeyToken, string.Empty);
+        _controller.Configure(url, token);
     }
 }
