@@ -1,56 +1,101 @@
+using System.Runtime.CompilerServices;
+using LoupixDeck.Plugin.CoolerControl.Rendering.Tiles;
+using LoupixDeck.Plugin.CoolerControl.Telemetry;
 using LoupixDeck.PluginSdk;
 
 namespace LoupixDeck.Plugin.CoolerControl;
 
 /// <summary>
-/// Entry point of the CoolerControl plugin. Contributes the "Set Mode" command
-/// and a live "Modes" submenu, and exposes the daemon URL as a setting.
+/// Entry point of the CoolerControl plugin. Contributes the "Set Mode" command with a live
+/// "Modes" submenu, and two pixel-tile display commands fed by the daemon's device status:
+/// <c>CoolerControl.Sensor</c> (one reading per command; chain several for a multi-row tile) and
+/// <c>CoolerControl.Pages</c> (component pages, a key press shows the next one) — the same tiles as
+/// the Argus Monitor plugin. Exposes the daemon URL and access token as settings.
 /// </summary>
 public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPluginSettingsPage
 {
+    public const string GroupName = "Cooler Control";
+    public const string GroupIcon = "\U000F062E";
+
+    /// <summary>Settings key: when true, buttons are drawn without an opaque background so the page
+    /// wallpaper shows through. Read by the display commands at render time.</summary>
+    public const string TransparentBackgroundKey = "background.transparent";
+
+    /// <summary>Settings key: the CPU's maximum junction temperature in °C. CPU warn/critical
+    /// limits are TjMax − 15 / TjMax − 5.</summary>
+    public const string CpuTjMaxKey = "thresholds.cpuTjMax";
+
     private const string KeyUrl = "url";
-    private const string DefaultUrl = "http://127.0.0.1:11987/";
+    private const string KeyToken = "token";
+    private const string DefaultUrl = CoolerControlApiController.DefaultUrl;
+    private const long DefaultTjMax = 100;
 
     private readonly CoolerControlApiController _controller = new();
+    private readonly CoolerControlService _service;
+    private readonly TelemetrySampler _telemetry;
+    private readonly List<IPluginCommand> _commands;
     private IPluginHost? _host;
+
+    public CoolerControlPlugin()
+    {
+        _service = new CoolerControlService(_controller);
+        _telemetry = new TelemetrySampler(_service, ReadTjMax);
+        _commands =
+        [
+            new CoolerControlSetModeCommand(_controller),
+            new CoolerControlSensorCommand(_telemetry),
+            new CoolerControlPagesCommand(_telemetry)
+        ];
+    }
 
     public override PluginMetadata Metadata { get; } = new()
     {
         Id = "coolercontrol",
         Name = "CoolerControl",
-        Version = new Version(1, 0, 0),
-        SdkVersion = new Version(1, 16, 0),
+        Version = new Version(1, 1, 0),
+        SdkVersion = new Version(1, 26, 0),
         Author = "RadiatorTwo",
-        Description = "Activate CoolerControl modes from the device via the CoolerControl daemon API."
+        Description = "Activate CoolerControl modes and show the daemon's sensor readings on touch buttons."
     };
 
     public override void Initialize(IPluginHost host)
     {
         _host = host;
         ApplySettings();
+        _service.Start();
+        _telemetry.Start();
     }
 
-    public override IEnumerable<IPluginCommand> GetCommands()
+    public override void Shutdown()
     {
-        return [new CoolerControlSetModeCommand(_controller)];
+        _telemetry.Stop();
+        _service.Stop();
     }
+
+    private double ReadTjMax()
+    {
+        long tjMax = _host?.Settings.Get(CpuTjMaxKey, DefaultTjMax) ?? DefaultTjMax;
+        return Math.Clamp(tjMax, 60, 125);
+    }
+
+    public override IEnumerable<IPluginCommand> GetCommands() => _commands;
 
     public override IReadOnlyList<CommandGroupDescriptor> GetCommandGroups() =>
     [
         new CommandGroupDescriptor
         {
-            Group = "Cooler Control",
+            Group = GroupName,
             Description = "Fan and cooling control",
-            Icon = "\U000F062E",
+            Icon = GroupIcon,
             Section = CommandGroupSection.Plugins
         }
     ];
 
-    // ───────── IMenuContributor — dynamic "Modes" submenu ─────────
+    // ───────── IMenuContributor — dynamic "Modes" submenu and sensor tree ─────────
 
     public async Task<IReadOnlyList<MenuNode>> GetMenuNodes(ButtonTargets target)
     {
-        // Mode switching is offered for touch buttons only.
+        // Mode switching and sensor tiles are offered for touch buttons only.
         if (target != ButtonTargets.TouchButton)
             return [];
 
@@ -79,9 +124,41 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
             modeChildren.Add(new MenuNode { Name = $"Connection failed: {ex.Message}" });
         }
 
-        var modesFolder = new MenuNode { Name = "Modes", Children = modeChildren };
-        return [new MenuNode { Name = "Cooler Control", Children = [modesFolder] }];
+        List<MenuNode> groupChildren = [new MenuNode { Name = "Modes", Children = modeChildren }];
+
+        IReadOnlyList<CoolerSensor> sensors = _service.Sensors;
+        if (!_service.IsAvailable || sensors.Count == 0)
+        {
+            groupChildren.Add(new MenuNode { Name = "Sensors not available" });
+        }
+        else
+        {
+            groupChildren.Add(new MenuNode { Name = "Pages", Children = PageNodes() });
+
+            // One entry per reading (one command each), sorted by component, device and quantity.
+            // Combine several on a button via its command sequence to get a multi-row tile.
+            groupChildren.AddRange(SensorMenu.Build(sensors));
+        }
+
+        return [new MenuNode { Name = GroupName, Children = groupChildren }];
     }
+
+    /// <summary>The paging tile (every page, press for the next) and one fixed tile per page.</summary>
+    private static List<MenuNode> PageNodes() =>
+    [
+        PagesNode("All pages (press to cycle)", ComponentPages.DefaultSelection),
+        PagesNode("CPU page", ComponentPages.Cpu.Id),
+        PagesNode("GPU page", ComponentPages.Gpu.Id),
+        PagesNode("Disk page", ComponentPages.Disk.Id),
+        PagesNode("CPU summary", ComponentPages.Summary.Id)
+    ];
+
+    private static MenuNode PagesNode(string name, string pages) => new()
+    {
+        Name = name,
+        CommandName = CoolerControlPagesCommand.CommandName,
+        Parameters = new Dictionary<string, string> { { "Pages", pages } }
+    };
 
     // ───────── IPluginSettingsPage ─────────
 
@@ -92,6 +169,32 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
             Key = KeyUrl, Label = "Daemon URL", Kind = PluginSettingKind.Text,
             DefaultValue = DefaultUrl,
             Description = "Base URL of the CoolerControl daemon REST API."
+        },
+        new PluginSettingDescriptor
+        {
+            Key = KeyToken, Label = "Access token (optional)", Kind = PluginSettingKind.Password,
+            DefaultValue = string.Empty,
+            Description = "Required for CoolerControl 4.0 and later. Create one in CoolerControl under " +
+                          "Access Protection, with write access to switch modes. Leave empty for older daemons."
+        },
+        new PluginSettingDescriptor
+        {
+            Key = TransparentBackgroundKey,
+            Label = "Transparent background",
+            Kind = PluginSettingKind.Toggle,
+            DefaultValue = false,
+            Description = "Draw buttons without an opaque background so the page wallpaper shows through. " +
+                          "Text gets a 1-pixel shadow for legibility."
+        },
+        new PluginSettingDescriptor
+        {
+            Key = CpuTjMaxKey,
+            Label = "CPU TjMax (°C)",
+            Kind = PluginSettingKind.Number,
+            DefaultValue = DefaultTjMax,
+            Description = "Maximum junction temperature of your CPU, from the vendor's spec sheet " +
+                          "(typically 95 for AMD Ryzen, 100–105 for Intel). CPU temperature turns amber " +
+                          "at TjMax − 15 and red at TjMax − 5."
         }
     ];
 
@@ -106,11 +209,12 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
                 try
                 {
                     var modes = await _controller.GetModes();
-                    return $"Connected — {modes.Count} mode(s)";
+                    var devices = await _controller.GetDevices();
+                    return string.Format(Tr("Connected — {0} mode(s), {1} device(s)."), modes.Count, devices.Count);
                 }
                 catch (Exception ex)
                 {
-                    return $"Failed: {ex.Message}";
+                    return string.Format(Tr("Failed: {0}"), ex.Message);
                 }
             }
         }
@@ -118,7 +222,34 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
 
     private IReadOnlyList<PluginSettingAction>? _settingsActions;
 
-    public void OnSettingsSaved() => ApplySettings();
+    /// <summary>Translates runtime text through the plugin's strings files; hosts before SDK 1.24
+    /// have no <see cref="IPluginHost.Tr"/> and get the English text.</summary>
+    private string Tr(string english)
+    {
+        try
+        {
+            return _host is null ? english : HostTr(_host, english);
+        }
+        catch (MissingMethodException)
+        {
+            return english;
+        }
+    }
+
+    // Kept out of line: the JIT resolves IPluginHost.Tr when it compiles this method, which throws
+    // on a host without it — inside Tr's try block rather than in its caller.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static string HostTr(IPluginHost host, string english) => host.Tr(english);
+
+    public void OnSettingsSaved()
+    {
+        ApplySettings();
+
+        // Tiles redraw several times a second and pick up the new settings on their own; this
+        // only covers a host that drives them through the slower poll path.
+        _host?.RequestButtonRefresh(CoolerControlSensorCommand.CommandName);
+        _host?.RequestButtonRefresh(CoolerControlPagesCommand.CommandName);
+    }
 
     private void ApplySettings()
     {
@@ -126,6 +257,8 @@ public sealed class CoolerControlPlugin : LoupixPlugin, IMenuContributor, IPlugi
             return;
 
         var url = _host.Settings.Get(KeyUrl, DefaultUrl) ?? DefaultUrl;
-        _controller.Configure(url);
+        var token = _host.Settings.Get(KeyToken, string.Empty);
+        _controller.Configure(url, token);
+        _service.Reset();
     }
 }
