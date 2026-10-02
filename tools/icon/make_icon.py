@@ -116,8 +116,8 @@ def linear_gradient(box, css_deg, stops):
 
 # ---------- Fan blade ----------
 C = 128           # rotor center
-R_ROOT = 18       # blade root radius (hidden under the hub)
-R_TIP = 64        # blade tip radius
+R_ROOT = 23       # blade root radius (hidden under the hub)
+R_TIP = 84        # blade tip radius
 BLADES = 7
 
 
@@ -154,17 +154,17 @@ paint(EDGE, icon - rrect(1, 1, SIZE - 2, SIZE - 2, 57))
 blades = np.zeros((N, N), dtype=np.float32)
 for k in range(BLADES):
     blades = np.maximum(blades, blade(k * 360 / BLADES))
-drop_shadow(blades, 0, 14, 20, oklch(0.04, 0.04, 260, 0.80), icon)
-drop_shadow(blades, 0, 4, 3, oklch(0.06, 0.03, 260, 0.55), icon)
+drop_shadow(blades, 0, 18, 26, oklch(0.04, 0.04, 260, 0.80), icon)
+drop_shadow(blades, 0, 5, 4, oklch(0.06, 0.03, 260, 0.55), icon)
 BOX = (C - R_TIP, C - R_TIP, 2 * R_TIP, 2 * R_TIP)
 paint(linear_gradient(BOX, 160, [(0, oklch(0.93, 0.006, 260)[:3]), (1, oklch(0.76, 0.01, 260)[:3])]), blades)
 inset_shadow(blades, 0, -3, 4, oklch(0.4, 0.02, 260, 0.35))
 inset_shadow(blades, 0, 2, 2, (1, 1, 1, 0.45))
 
 # Hub (like the Audio knob's cap)
-HR = 24
+HR = 31
 hub = circle(C, C, HR)
-drop_shadow(hub, 0, 3, 6, oklch(0.1, 0.03, 260, 0.55), icon)
+drop_shadow(hub, 0, 4, 8, oklch(0.1, 0.03, 260, 0.55), icon)
 HB = (C - HR, C - HR, 2 * HR, 2 * HR)
 paint(linear_gradient(HB, 165, [(0, oklch(0.90, 0.006, 260)[:3]), (1, oklch(0.78, 0.008, 260)[:3])]), hub)
 # Highlight: radial at 36%/26%, 35% white fading to 0 at 55% of the farthest-corner radius
@@ -176,8 +176,8 @@ inset_shadow(hub, 0, -3, 5, oklch(0.4, 0.02, 260, 0.30))
 inset_shadow(hub, 0, 2, 3, (1, 1, 1, 0.50))
 
 # Accent dot in the hub, in the Audio icon's ring color
-paint(ACCENT, circle(C, C, 7))
-inset_shadow(circle(C, C, 7), 0, 1.5, 2, oklch(0.3, 0.05, 220, 0.45))
+paint(ACCENT, circle(C, C, 9))
+inset_shadow(circle(C, C, 9), 0, 1.5, 2, oklch(0.3, 0.05, 220, 0.45))
 
 # Clip to the icon shape
 canvas[..., 3] *= icon
