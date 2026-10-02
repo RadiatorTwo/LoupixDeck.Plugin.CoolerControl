@@ -1,7 +1,7 @@
 # Plugin icon generator
 
-`make_icon.py` draws the plugin icon: a seven-blade fan rotor inside a level ring, matte, night blue.
-It follows the Audio plugin's icon (same background, ring, colors and shading) and is original
+`make_icon.py` draws the plugin icon: a seven-blade fan rotor, matte, night blue.
+It follows the Audio plugin's icon (same background, colors and shading; no level ring) and is original
 artwork, no third-party source. The CoolerControl project logo is not used.
 
 ```bash

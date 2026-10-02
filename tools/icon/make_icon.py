@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""LoupixDeck CoolerControl plugin icon (fan rotor in a level ring, matte, night blue).
+"""LoupixDeck CoolerControl plugin icon (fan rotor, matte, night blue).
 
-Same look as the Audio plugin icon: background, ring, colors and shading are shared;
-the knob is replaced by a seven-blade fan rotor.
+Same look as the Audio plugin icon: background, colors and shading are shared;
+the knob is replaced by a seven-blade fan rotor and the level ring is left out.
 
 Requires: pip install pillow numpy
 Usage:    python make_icon.py [output_dir]
@@ -39,8 +39,6 @@ def oklch(L, C, h, a=1.0):
 # Colors (same as the Audio icon)
 BG = oklch(0.24, 0.02, 260)
 EDGE = oklch(0.32, 0.02, 260)
-ARC = oklch(0.80, 0.13, 200)
-TRACK = oklch(0.34, 0.02, 260)
 ACCENT = oklch(0.80, 0.13, 200)
 
 # ---------- Masks ----------
@@ -152,13 +150,6 @@ icon = rrect(0, 0, SIZE, SIZE, 58)
 paint(BG, icon)
 paint(EDGE, icon - rrect(1, 1, SIZE - 2, SIZE - 2, 57))
 
-# Level ring: conic arc from 225°, 190° long, track up to 270°, the rest empty
-ang = (np.degrees(np.arctan2(XX - 128, -(YY - 128))) % 360 - 225) % 360
-ring = circle(128, 128, 92)
-paint(ARC, ring * (ang < 190))
-paint(TRACK, ring * ((ang >= 190) & (ang < 270)))
-paint(BG, circle(128, 128, 74))  # cut out the ring
-
 # Rotor blades (plastic, matte)
 blades = np.zeros((N, N), dtype=np.float32)
 for k in range(BLADES):
@@ -184,7 +175,7 @@ paint((1, 1, 1, 1.0), hub * (0.35 * (1 - t)))
 inset_shadow(hub, 0, -3, 5, oklch(0.4, 0.02, 260, 0.30))
 inset_shadow(hub, 0, 2, 3, (1, 1, 1, 0.50))
 
-# Accent dot in the hub, in the ring's color
+# Accent dot in the hub, in the Audio icon's ring color
 paint(ACCENT, circle(C, C, 7))
 inset_shadow(circle(C, C, 7), 0, 1.5, 2, oklch(0.3, 0.05, 220, 0.45))
 
